@@ -56,3 +56,29 @@ jobs:
               echo "::error::Alert check failed with HTTP $code"
               exit 1 ;;
           esac
+
+      # A silently dead alert cron hides every alert behind it, so a genuine
+      # failure (not the pending-setup cases above, which exit 0) gets pushed
+      # to Telegram rather than only living in the Actions tab.
+      - name: Notify Telegram if the alert cron broke
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
+            echo "Telegram not configured - skipping notification."
+            exit 0
+          fi
+
+          text="⚠️ OmniSwap price-alert cron FAILED
+          Price alerts are not being checked.
+          ${RUN_URL}"
+
+          curl -sS --max-time 20 -X POST \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d "chat_id=${TELEGRAM_CHAT_ID}" \
+            -d "disable_web_page_preview=true" \
+            --data-urlencode "text=${text}" \
+            -o /dev/null -w 'telegram HTTP %{http_code}\n'

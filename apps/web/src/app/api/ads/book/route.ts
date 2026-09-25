@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { notifyOperator } from '@/lib/telegram';
 import { verifyPayment } from '@/lib/paymentVerification';
 import { computeAdPricing } from '@/lib/adPricing';
 
@@ -159,6 +160,18 @@ export async function POST(request: NextRequest) {
         status: settings?.adRequiresApproval ? 'PENDING_APPROVAL' : 'APPROVED',
       },
     });
+
+    // Operator notification. Intentionally awaited-but-guarded: notifyOperator
+    // never throws, so a Telegram outage cannot fail a paid booking.
+    await notifyOperator('Ad booking paid', [
+      ['Slot', slotId],
+      ['Company', companyName || email],
+      ['Amount', `$${serverPricing.finalPrice.toFixed(2)}`],
+      ['Days', days],
+      ['Starts', start.toISOString().slice(0, 10)],
+      ['Status', booking.status],
+      ['Booking', booking.id],
+    ]);
 
     return NextResponse.json(booking);
   } catch (error) {

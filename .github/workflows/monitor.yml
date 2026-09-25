@@ -1,0 +1,122 @@
+name: Monitor app health
+
+# Runs OUTSIDE the app on purpose: a health checker living inside the
+# deployment can't tell you the deployment is down. GitHub Actions gives us a
+# free external vantage point on this public repo.
+#
+# Telegram is notified only on STATE CHANGE (up -> down, down -> up), using the
+# previous run's conclusion as the state store, so a sustained outage doesn't
+# send a message every 10 minutes.
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch: {}
+
+concurrency:
+  group: monitor
+  cancel-in-progress: false
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe app health
+        id: probe
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+        run: |
+          if [ -z "$APP_URL" ]; then
+            echo "::warning::APP_URL repo variable is not set - monitoring is not running yet."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          fail_reasons=""
+
+          # 1. Homepage reachable
+          home=$(curl -sS --max-time 25 -o /dev/null -w '%{http_code}' "$APP_URL/" || echo "000")
+          [ "${home:0:1}" = "2" ] || fail_reasons="${fail_reasons}homepage HTTP ${home}; "
+
+          # 2. Health endpoint (checks DB + alert-cron freshness server-side)
+          health_code=$(curl -sS --max-time 25 -o /tmp/health.json -w '%{http_code}' "$APP_URL/api/health" || echo "000")
+          health_body=$(cat /tmp/health.json 2>/dev/null | head -c 800)
+          [ "$health_code" = "200" ] || fail_reasons="${fail_reasons}health HTTP ${health_code}; "
+
+          echo "homepage=$home health=$health_code"
+          echo "$health_body"
+
+          {
+            echo "skip=false"
+            echo "health_code=$health_code"
+            echo "reasons=${fail_reasons}"
+            echo "body<<EOF"
+            echo "$health_body"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+          if [ -n "$fail_reasons" ]; then
+            echo "::error::Health probe failed: ${fail_reasons}"
+            exit 1
+          fi
+
+      - name: Look up previous run result
+        id: prev
+        if: always() && steps.probe.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Conclusion of the previous completed run of this same workflow.
+          prev=$(gh api "repos/${{ github.repository }}/actions/workflows/monitor.yml/runs?status=completed&per_page=1" \
+            --jq '.workflow_runs[0].conclusion // "none"' 2>/dev/null || echo "none")
+          echo "Previous conclusion: $prev"
+          echo "conclusion=$prev" >> "$GITHUB_OUTPUT"
+
+      - name: Notify Telegram on state change
+        if: always() && steps.probe.outputs.skip != 'true'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          APP_URL: ${{ vars.APP_URL }}
+          NOW: ${{ steps.probe.outcome }}
+          PREV: ${{ steps.prev.outputs.conclusion }}
+          REASONS: ${{ steps.probe.outputs.reasons }}
+          BODY: ${{ steps.probe.outputs.body }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
+            echo "::warning::TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID not set - no notification sent."
+            exit 0
+          fi
+
+          # Only message on a transition, so an ongoing outage isn't spam.
+          if [ "$NOW" = "failure" ] && [ "$PREV" = "failure" ]; then
+            echo "Still down, already notified - staying quiet."
+            exit 0
+          fi
+          if [ "$NOW" = "success" ] && [ "$PREV" != "failure" ]; then
+            echo "Still healthy - nothing to report."
+            exit 0
+          fi
+
+          if [ "$NOW" = "failure" ]; then
+            text="🔴 OmniSwap is DOWN%0A%0A${REASONS}%0A%0A${BODY}%0A%0A${RUN_URL}"
+          else
+            text="✅ OmniSwap RECOVERED%0A%0ABack up at $(date -u '+%Y-%m-%d %H:%M UTC')%0A%0A${RUN_URL}"
+          fi
+
+          # plain text (no parse_mode) so no Markdown escaping is needed here
+          curl -sS --max-time 20 -X POST \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d "chat_id=${TELEGRAM_CHAT_ID}" \
+            -d "disable_web_page_preview=true" \
+            --data-urlencode "text=$(printf '%b' "${text//%0A/\\n}")" \
+            -o /tmp/tg.json -w 'telegram HTTP %{http_code}\n'
+          cat /tmp/tg.json; echo
+
+      - name: Reflect health in job status
+        if: always() && steps.probe.outputs.skip != 'true' && steps.probe.outcome == 'failure'
+        run: exit 1

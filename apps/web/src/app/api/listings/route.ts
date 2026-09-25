@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { notifyOperator } from '@/lib/telegram';
 import { verifyPayment } from '@/lib/paymentVerification';
 
 export async function POST(request: NextRequest) {
@@ -133,6 +134,16 @@ export async function POST(request: NextRequest) {
     });
 
     console.log('Created listing request with payment:', listing.id, 'txHash:', payment.txHash);
+
+    // Operator notification - guarded, cannot fail the paid listing.
+    await notifyOperator('Token listing submitted', [
+      ['Token', `${symbol.toUpperCase()} (${name})`],
+      ['Chain', chainId],
+      ['Contract', contractAddress],
+      ['Fee', `$${expectedFee}`],
+      ['Contact', email],
+      ['Listing', listing.id],
+    ]);
 
     return NextResponse.json(listing);
   } catch (error) {

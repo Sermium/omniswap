@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { prisma } from '@/lib/prisma';
+import { notifyOperator } from '@/lib/telegram';
 
 export async function POST(request: NextRequest) {
   try {
@@ -54,6 +55,12 @@ export async function POST(request: NextRequest) {
               status: settings?.adRequiresApproval ? 'PENDING_APPROVAL' : 'APPROVED',
             },
           });
+
+          await notifyOperator('Ad booking paid (Stripe)', [
+            ['Booking', metadata.bookingId],
+            ['Amount', session.amount_total != null ? `$${(session.amount_total / 100).toFixed(2)}` : null],
+            ['Email', session.customer_details?.email || null],
+          ]);
         } else if (metadata.type === 'token_listing' && metadata.listingId) {
           await prisma.tokenListingRequest.update({
             where: { id: metadata.listingId },
@@ -66,6 +73,12 @@ export async function POST(request: NextRequest) {
               status: 'PENDING_REVIEW',
             },
           });
+
+          await notifyOperator('Token listing paid (Stripe)', [
+            ['Listing', metadata.listingId],
+            ['Amount', session.amount_total != null ? `$${(session.amount_total / 100).toFixed(2)}` : null],
+            ['Email', session.customer_details?.email || null],
+          ]);
         } else {
           console.warn(`Session ${session.id} paid but metadata had no bookingId/listingId to settle`, metadata);
         }
