@@ -1,12 +1,19 @@
 name: Check price alerts
 
 # Vercel's Hobby plan caps cron at once per day, which is far too infrequent for
-# price alerts - so the schedule lives here instead (GitHub Actions is free for
-# this) and just pokes the protected API route.
+# price alerts - so the schedule lives here instead (Actions is free on this
+# public repo) and just pokes the protected API route.
+#
+# NOTE: GitHub disables scheduled workflows after 60 days of repo inactivity.
 on:
   schedule:
     - cron: '*/10 * * * *'
   workflow_dispatch: {}
+
+# Don't let a slow run overlap the next scheduled one.
+concurrency:
+  group: check-alerts
+  cancel-in-progress: false
 
 jobs:
   check-alerts:
@@ -17,21 +24,35 @@ jobs:
           APP_URL: ${{ vars.APP_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
+          # "Not configured yet" is not a failure - warn and stop, rather than
+          # turning setup-pending into a red X on every 10-minute run.
           if [ -z "$APP_URL" ] || [ -z "$CRON_SECRET" ]; then
-            echo "APP_URL variable or CRON_SECRET secret is not set - skipping."
-            exit 1
+            echo "::warning::APP_URL variable or CRON_SECRET secret is not set - alert checks are not running yet."
+            exit 0
           fi
 
-          response=$(curl -sS -o /tmp/body -w '%{http_code}' -X POST \
+          code=$(curl -sS --max-time 60 -o /tmp/body -w '%{http_code}' -X POST \
             -H "x-cron-secret: $CRON_SECRET" \
-            "$APP_URL/api/cron/check-alerts")
+            "$APP_URL/api/cron/check-alerts") || {
+              echo "::error::Could not reach $APP_URL/api/cron/check-alerts"
+              exit 1
+            }
 
-          echo "HTTP $response"
-          cat /tmp/body
-          echo
+          echo "HTTP $code"
+          cat /tmp/body; echo
 
-          # Fail the job on a non-2xx so a broken cron is visible rather than silent.
-          case "$response" in
-            2*) exit 0 ;;
-            *) exit 1 ;;
+          case "$code" in
+            2*)
+              exit 0 ;;
+            503)
+              # The app itself reports it isn't configured (CRON_SECRET missing
+              # on the deployment). Same "pending setup" case as above.
+              echo "::warning::App reports CRON_SECRET is not configured on the deployment yet."
+              exit 0 ;;
+            401)
+              echo "::error::Rejected by the app - the CRON_SECRET here does not match the one deployed."
+              exit 1 ;;
+            *)
+              echo "::error::Alert check failed with HTTP $code"
+              exit 1 ;;
           esac
