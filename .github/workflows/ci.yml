@@ -12,7 +12,9 @@ concurrency:
 
 env:
   NODE_VERSION: '20'
-  PNPM_VERSION: '9.0.0'
+  # Must match the "packageManager" field in package.json: the lockfile is in
+  # pnpm 8 format, and pnpm 9 refuses a frozen install against it.
+  PNPM_VERSION: '8.15.0'
 
 jobs:
   # ==========================================================================
