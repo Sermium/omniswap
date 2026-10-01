@@ -41,8 +41,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Generated from apps/api/prisma/schema.prisma (apps/web points at it via
+      # its "prisma" block). That schema owns the migrations and matches the
+      # live database; packages/database holds an older copy that has drifted
+      # a model and several fields behind, and generating from it produced a
+      # client whose types did not match the app.
       - name: Generate Prisma Client
-        run: pnpm --filter @omniswap/database db:generate
+        run: pnpm --filter @omniswap/web prisma:generate
 
       - name: Lint
         run: pnpm lint
@@ -101,10 +106,10 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Generate Prisma Client
-        run: pnpm --filter @omniswap/database db:generate
+        run: pnpm --filter @omniswap/web prisma:generate
 
       - name: Run migrations
-        run: pnpm --filter @omniswap/database db:push
+        run: pnpm --filter @omniswap/web exec prisma db push --skip-generate
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/omniswap_test
 
@@ -149,7 +154,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Generate Prisma Client
-        run: pnpm --filter @omniswap/database db:generate
+        run: pnpm --filter @omniswap/web prisma:generate
 
       - name: Build
         run: pnpm build
