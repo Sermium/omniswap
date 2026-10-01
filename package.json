@@ -19,7 +19,8 @@
     "mobile:android": "pnpm --filter @omniswap/mobile android",
     "mobile:ios": "pnpm --filter @omniswap/mobile ios",
     "typecheck": "turbo run typecheck --filter=!@omniswap/mobile",
-    "typecheck:mobile": "turbo run typecheck --filter=@omniswap/mobile"
+    "typecheck:mobile": "turbo run typecheck --filter=@omniswap/mobile",
+    "test:ci": "turbo run test:ci"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
