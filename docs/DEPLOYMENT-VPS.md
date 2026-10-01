@@ -67,11 +67,14 @@ target, so any local change there is discarded.
 `ADMIN_PASSWORD_HASH`. API keys and RPC URLs were carried over from the previous
 config.
 
+Telegram operator alerts are configured and verified end to end: the bot posts
+to the `CF` supergroup (`TELEGRAM_CHAT_ID` is set on the host and as a GitHub
+Actions secret, so both the app and `monitor.yml` can reach it).
+
 Still blank, each disabling one optional feature:
 
 | Variable | What stays off without it |
 |---|---|
-| `TELEGRAM_CHAT_ID` | All Telegram operator alerts (the bot token is set) |
 | `RESEND_API_KEY`, `ALERT_EMAIL_FROM` | Price-alert emails (alerts still fire in-app) |
 | `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | WalletConnect; injected wallets still work |
 | `NEXT_PUBLIC_0X_API_KEY` | The 0x fallback quote; 1inch is primary and configured |
