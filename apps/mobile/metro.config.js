@@ -28,7 +28,9 @@ config.resolver.extraNodeModules = new Proxy(
   },
   {
     get: (target, name) => {
-      if (target.hasOwnProperty(name)) {
+      // Called through Object.prototype: a module name that happens to be
+      // "hasOwnProperty" would otherwise shadow the method on target.
+      if (Object.prototype.hasOwnProperty.call(target, name)) {
         return target[name];
       }
       // Fallback to node_modules

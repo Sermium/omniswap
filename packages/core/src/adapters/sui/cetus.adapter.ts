@@ -2,9 +2,10 @@ import axios, { AxiosInstance } from 'axios';
 import { logger } from '../../utils/logger';
 import { BaseAdapter, AdapterQuoteParams, AdapterQuoteResult, AdapterConfig } from '../base.adapter';
 
-export interface CetusConfig extends AdapterConfig {
-  // No additional config needed
-}
+// Cetus needs nothing beyond the shared adapter config. Kept as a named alias
+// rather than an empty interface so there is still one type to widen if it
+// ever does need its own options.
+export type CetusConfig = AdapterConfig;
 
 const DEFAULT_CONFIG: CetusConfig = {
   baseUrl: 'https://api-sui.cetus.zone',

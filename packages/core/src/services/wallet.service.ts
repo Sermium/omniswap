@@ -469,9 +469,10 @@ export class WalletService {
     const chainType = this.getChainType(chainId);
 
     switch (chainType) {
-      case 'evm':
+      case 'evm': {
         const evmResult = await this.evmService.getTokenBalance(chainId, tokenAddress, walletAddress);
         return { balance: evmResult.balance, decimals: evmResult.decimals };
+      }
       case 'solana':
         return this.solanaService.getTokenBalance(walletAddress, tokenAddress);
       case 'sui':

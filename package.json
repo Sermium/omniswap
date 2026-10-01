@@ -17,7 +17,9 @@
     "docker:down": "docker-compose down",
     "mobile": "pnpm --filter @omniswap/mobile start:lan",
     "mobile:android": "pnpm --filter @omniswap/mobile android",
-    "mobile:ios": "pnpm --filter @omniswap/mobile ios"
+    "mobile:ios": "pnpm --filter @omniswap/mobile ios",
+    "typecheck": "turbo run typecheck --filter=!@omniswap/mobile",
+    "typecheck:mobile": "turbo run typecheck --filter=@omniswap/mobile"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
@@ -25,7 +27,8 @@
     "prettier": "^3.2.0",
     "prisma": "5.22.0",
     "turbo": "^2.0.0",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "typescript-eslint": "^8.18.0"
   },
   "engines": {
     "node": ">=18.0.0",

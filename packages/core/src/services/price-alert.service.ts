@@ -235,12 +235,13 @@ export class PriceAlertService extends EventEmitter {
       case 'PRICE_BELOW':
         triggered = currentPrice <= alert.targetPrice;
         break;
-      case 'PRICE_CHANGE_PERCENT':
+      case 'PRICE_CHANGE_PERCENT': {
         // For percent change, targetPrice represents the % change
         const basePrice = alert.currentPrice || currentPrice;
         const changePercent = ((currentPrice - basePrice) / basePrice) * 100;
         triggered = Math.abs(changePercent) >= alert.targetPrice;
         break;
+      }
     }
 
     if (triggered) {

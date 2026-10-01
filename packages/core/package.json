@@ -22,7 +22,8 @@
     "test:coverage": "jest --coverage",
     "test:ci": "jest --ci --coverage --reporters=default --reporters=jest-junit",
     "build": "tsc",
-    "lint": "eslint src --ext .ts"
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@mysten/sui.js": "^0.54.1",

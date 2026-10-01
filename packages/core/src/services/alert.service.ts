@@ -410,7 +410,7 @@ export class AlertService {
       case PRICE_BELOW:
         return currentPrice <= Number(alert.targetPrice);
 
-      case PRICE_CHANGE_PERCENT:
+      case PRICE_CHANGE_PERCENT: {
         const basePrice = Number(alert.basePrice);
         const percentChange = ((currentPrice - basePrice) / basePrice) * 100;
         const targetPercent = Number(alert.percentChange);
@@ -420,6 +420,7 @@ export class AlertService {
         } else {
           return percentChange <= targetPercent;
         }
+      }
 
       default:
         return false;

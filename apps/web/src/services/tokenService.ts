@@ -20,7 +20,10 @@ const ADMIN_ADDRESSES_KEY = 'omniswap_admin_addresses';
 // Token Registry
 // ============================================
 
-let tokens: Token[] = [...(tokensData.tokens as Token[])];
+// const, not let: the registry is mutated in place (push/splice below) but the
+// binding itself is never reassigned, and must not be - other modules hold a
+// reference to this exact array.
+const tokens: Token[] = [...(tokensData.tokens as Token[])];
 
 // Load custom tokens
 const loadCustomTokens = (): void => {

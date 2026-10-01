@@ -83,7 +83,7 @@ export const useWallet = (preferredChainType?: ChainType): WalletState => {
 
     try {
       switch (targetChainType) {
-        case 'EVM':
+        case 'EVM': {
           // Find the injected connector (MetaMask, etc.)
           const injectedConnector = evmConnectors.find(
             (c) => c.id === 'injected' || c.id === 'metaMask'
@@ -92,6 +92,7 @@ export const useWallet = (preferredChainType?: ChainType): WalletState => {
             await evmConnect({ connector: injectedConnector });
           }
           break;
+        }
 
         case 'SOLANA':
           // Trigger Solana wallet modal
